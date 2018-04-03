@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
+chooseCRANmirror(graphics=FALSE, ind=1)
 set.seed(1859)
 ```
 
@@ -15,51 +16,53 @@ set.seed(1859)
 First, install and load ape ([Paradis et al., 2004](https://doi.org/10.1093/bioinformatics/btg412)), TreeSim ([Stadler, 2011](http://dx.doi.org/10.1093/sysbio/syr029)), geiger ([Harmon et al., 2008](https://doi.org/10.1093/bioinformatics/btm538)), diversitree ([FitzJohn 2012](http://onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2012.00234.x/abstract)) and hisse ([Beaulieu & O'Meara, 2016](https://doi.org/10.1093/sysbio/syw022)). 
 
 ```{r, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
-#install.packages(c("ape", "TreeSim", "geiger", "diversitree", "devtools"))
+install.packages(c("TreeSim", "diversitree", "hisse"))
 library(ape)
 library(TreeSim)
 library(geiger)
 library(diversitree)
-#devtools::install_github("thej022214/hisse")
+devtools::install_github("thej022214/hisse")
 library(hisse)
 ```
 
 Let's initially look just at diversification alone. Simulate a 30 taxon tree with only speciation, no extinction:
 
 ```{r}
-my.tree <- TreeSim::sim.bd.taxa(n=300, numbsim=1, lambda=0.1, mu=0)[[1]]
+my.tree <- TreeSim::sim.bd.taxa(n=30, numbsim=1, lambda=0.1, mu=0)[[1]] #simulation is random
 ```
 
 As always, plot it:
 
 ```{r}
-#stop("How to plot a tree")
+plot(my.tree) #hmm ok...
+#there are other ways to visualize trees. How about lineage through time plots! Showing the relationship between simulated Nt and time. 
 ```
 
 One way to look at trees, and actually what many methods reduce to under the hood, is lineage through time plots. 
 
 ```{r}
-ape::ltt.plot(my.tree)
+ape::ltt.plot(my.tree) #negative time? moving brom the tips (right hand side) to ancestral nodes (left hand side)
 ```
 
 You should see it increasing exponentially. Let's put it on a log scale:
 
 ```{r}
-ape::ltt.plot(my.tree, log="y")
+ape::ltt.plot(my.tree, log="y") 
 ```
 
 We can look at multiple trees:
 
 ```{r}
-yule.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=0.1, mu=0, complete=FALSE)
-#stop("How to do a multiple ltt plot?")
-
+yule.trees <- TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=0.1, mu=0, complete=FALSE)
+#plotting multiple simmies
+ape::mltt.plot(yule.trees)
+ape::mltt.plot(yule.trees, log="y") 
 ```
 
 We can also look at trees with birth and death.
 
 ```{r}
-bd.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=1, mu=.9, complete=FALSE)
+bd.trees <- TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=.9, complete=FALSE) #lambda:speciation #mu:extinction
 ape::mltt.plot(bd.trees, log="y", legend=FALSE)
 ```
 
@@ -68,16 +71,21 @@ And compare them:
 ```{r}
 depth.range <- range(unlist(lapply(yule.trees,ape::branching.times)), unlist(lapply(bd.trees,ape::branching.times)))
 max.depth <- sum(abs(depth.range)) #ape rescales depths
-plot(x=c(0, -1*max.depth), y=c(1, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
-colors=c(rgb(1,0,0,0.5), rgb(0, 0, 0, 0.5))
-list.of.both <- list(bd.trees, yule.trees)
-for (i in sequence(2)) {
+
+Comparing.trees<-function(depth.range,max.depth,yule.trees,bd.trees){
+  plot(x=c(0, -1*max.depth), y=c(1, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
+  colors=c(rgb(1,0,0,0.5), rgb(0, 0, 0, 0.5))
+  list.of.both <- list(bd.trees, yule.trees)
+  for (i in sequence(2)) {
     tree.list <- list.of.both[[i]]
     for (j in sequence(length(tree.list))) {
         ape::ltt.lines(tree.list[[j]], col=colors[[i]])   
     }
-}
-legend("topleft", legend=c("Birth Death", "Yule"), fill=colors)
+  }
+legend("topleft", legend=c("Model 1", "Model 2"), fill=colors)
+}  
+Comparing.trees(depth.range,max.depth,yule.trees,bd.trees)
+
 ```
 
 And zooming in on the final part of the plot:
@@ -85,7 +93,7 @@ And zooming in on the final part of the plot:
 ```{r}
 depth.range <- range(unlist(lapply(yule.trees,ape::branching.times)), unlist(lapply(bd.trees,ape::branching.times)))
 max.depth <- sum(abs(depth.range)) #ape rescales depths
-plot(x=c(0, -5), y=c(200, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
+plot(x=c(0, -4), y=c(20, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N") #something off with the axes and the scaling bit. 
 colors=c(rgb(1,0,0,0.5), rgb(0, 0, 0, 0.5))
 list.of.both <- list(bd.trees, yule.trees)
 for (i in sequence(2)) {
@@ -94,18 +102,46 @@ for (i in sequence(2)) {
         ape::ltt.lines(tree.list[[j]], col=colors[[i]])   
     }
 }
-legend("topleft", legend=c("Birth Death", "Yule"), fill=colors)
+legend("topleft", legend=c("Model 1", "Model 2"), fill=colors) #birth death model, in the zoomed in portion is just the birth rate 
 ```
 
 So even though the the net diversification rate is the same, there are very different patterns: in theory, one can estimate both birth and death rates from these trees. In practice, of course, with rates that change over time due to mass extinctions or trait evolution, missing taxa, etc. it can practically be hard to tell these apart.
 
-**TODO** Try plotting some with other diversification parameters. What happens if speciation rate is much higher than extinction rate? How does the simulation change with different values, but keeping their difference constant? If their sum is constant? [remember to change to `eval=TRUE` to run]
+**TODO** Try plotting some with other diversification parameters. What happens if speciation rate is much higher than extinction rate? How does the simulation change with different values, but keeping their difference constant? If their sum is constant? 
 
-```{r, eval=FALSE}
-my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=stop("CHOOSE YOUR VALUES"), mu=stop("CHOOSE YOUR VALUES"), complete=FALSE)
-ape::mltt.plot(my.trees, log="y", legend=FALSE)
+Changing speciation rate holding mu constant. 
+```{r} 
+#run some simmies and plot them, understand patterns of branch length change over time
+yule.1<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=.2, mu=0, complete=FALSE) #model 1
+yule.2<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=0, complete=FALSE) #model 2
+depth.range <- range(unlist(lapply(yule.1,ape::branching.times)), unlist(lapply(yule.2,ape::branching.times)))
+max.depth <- sum(abs(depth.range)) #ape rescales depths
+Comparing.trees(depth.range,max.depth,yule.1,yule.2)
 ```
-
+Speciation rate higher than extinction rate, varying extinction rates. 
+```{r}
+bd.1<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=0, complete=FALSE) #model 1
+bd.2<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=.8, complete=FALSE) #model 2
+depth.range <- range(unlist(lapply(bd.1,ape::branching.times)), unlist(lapply(bd.2,ape::branching.times)))
+max.depth <- sum(abs(depth.range))
+Comparing.trees(depth.range,max.depth,bd.1,bd.2)
+```
+Holding difference between parameters constant
+```{r}
+bd.3<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=.8, complete=FALSE) #model 1
+bd.4<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=.2, mu=.0, complete=FALSE) #model 2
+depth.range <- range(unlist(lapply(bd.3,ape::branching.times)), unlist(lapply(bd.4,ape::branching.times)))
+max.depth <- sum(abs(depth.range))
+Comparing.trees(depth.range,max.depth,bd.3,bd.4)
+```
+Holding sums contant between parameters (tau)
+```{r}
+bd.5<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=.8, mu=.2, complete=FALSE) #model 1
+bd.6<-TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=.7, mu=.3, complete=FALSE) #model 2
+depth.range <- range(unlist(lapply(bd.5,ape::branching.times)), unlist(lapply(bd.6,ape::branching.times)))
+max.depth <- sum(abs(depth.range))
+Comparing.trees(depth.range,max.depth,bd.5,bd.6)
+```
 Once you can see that there is some information in the distribution of branch lengths, you can (and people have) make multiple models and compare them: a model where diversification rate slows or speeds up over time generates different predictions from a model where it's constant, for example. There are a wide bestiary of models to compare: models that imply logistic growth to a maximum number of species ("Let's speciate due to the Rockies!" "Wait, we can't: there are too many species of us in China, we're full!"), species age ("I haven't speciated in a while -- I forget how"), mass extinctions ("Incoming rock!!!"), and more. It's important to remember the idea of [dull hypothesis testing](https://bookdown.org/bomeara/comparative-methods/dull-model-testing.html): if you're comparing a complex model versus a simple model, on a messy, real dataset, you're probably going to reject a simple model, even if the complex model isn't true. It's also worth looking at parameter estimates: if you find your group is undergoing logistic growth, what is the carrying capacity? If it's a group of 26 species, and the carrying capacity is 27, that's very different from finding a carrying capacity of 5000. The effect of missing species can also be significant (simulation to test for this effect can be important). There are also methods, like Medusa ([Alfaro et al., 2009](http://www.pnas.org/content/106/32/13410.abstract)) and BAMM ([Rabosky, 2014[(http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0089543)) that attempt to infer where on a tree diversification rate shifts have happened, though I'd currently (March 2017) caution against their use as the basis for a study (but using them to complement results gotten another way could be informative).
 
 ## Tree plus trait models
@@ -118,8 +154,8 @@ First, simulate a tree and characters to use:
 
 ```{r}
 speciation.rates <- c(0.1, 0.1, 0.1, 0.2) #0A, 1A, 0B, 1B
-extinction.rates <- rep(0.03, 4)
-transition.rates <- c(0.01,0.01,0, 0.01, 0, 0.01, 0.01,0,0.01, 0,0.01,0.01)
+extinction.rates <- rep(0.03, 4) #same extinction rate
+transition.rates <- c(0.01,0.01,0, 0.01, 0, 0.01, 0.01,0,0.01, 0,0.01,0.01) #0A->1A, 0A->0B, 0A->1B, 1A->0A, 1A->0B, 1A->1B, 0B->0A, 0B->1A, 0B->1B, 1B->0A, 1B->1A, 1B->0B #for actual observed transiton rates other than 0 (correlated traits), they are held constant. 
 pars <- c(speciation.rates, extinction.rates, transition.rates)
 phy <- tree.musse(pars, max.taxa=50, x0=1, include.extinct=FALSE)
 sim.dat.true <- data.frame(names(phy$tip.state), phy$tip.state)
@@ -145,8 +181,8 @@ Rather than optimizing $\lambda_i$ and $\mu_i$ separately, hisse optimizes trans
 
 Let's walk through a couple of examples. Take, for instance, the following index vectors:
 ```{r, eval=TRUE}
-turnover.anc = c(1,1,0,0)
-eps.anc = c(1,1,0,0)
+turnover.anc = c(1,1,0,0) #tau #net diversification rate
+eps.anc = c(1,1,0,0) #extinction fraction 
 ```
 In this example, turnover.anc has a single free parameter for both 0A and 1A state combinations; there is a single free parameter for extinction fraction. This is equivalent to a BiSSE model with a fixed turnover and extinction rates across the observed states 0 an 1. Now, say we want to include separate turnover rates for both states 0A and 1A: 
 ```{r, eval=TRUE}
@@ -277,7 +313,8 @@ knitr::opts_chunk$set(fig.width=7, fig.height=5)
 Our HiSSE package provides plotting functionality in `plot.hisse.states()` for character state reconstructions of `class hisse.states` output by our `MarginRecon()` function. Specifically, the function provides an overlay of the state reconstructions on the rate estimates. There are a couple of options for how these reconstructions to be plotted. First, a single `hisse.states` object can be supplied and it will provide a heat map of the diversification rate parameter of choice. Users can choose among turnover, net diversification ("net.div"), speciation, extinction, or extinction fraction ("extinction.fraction"). I've provided example `hisse.states` output from the example data set simulated above. This particular model assumed two diversification rate parameters -- i.e., turnover.anc=c(1,1,1,2), and eps.anc=c(1,1,1,1). Let's load this file and check that everything has loaded correctly and is of the proper `hisse.states` class:
 
 ```{r, eval=TRUE}
-load("testrecon1.Rsave")
+#githubinstall::gh_install_packages(packages = "https://github.com/thej022214/hisse/tree/master/vignettes")
+load("testrecon1.Rsave") #where is this file? #googled, found on github, downloaded. 
 class(pp.recon)
 pp.recon
 ```
@@ -299,12 +336,13 @@ A really cool feature of the plotting function is that if you provide a list of 
 A first initial step when doing the modeling-averaging approach is to make sure that the `hisse.states` objects contain the AIC from the model fit embedded in it. The plotting function will not work without it:
 ```{r, eval=TRUE}
 pp.recon$aic
+pp$AIC #why would I want to use this over pp.recon$aic?
 ```
 If this returns a NULL, then something has gone wrong and you should check how you performed the reconstructions. The AIC for the model can be supplied as an argument in the `MarginRecon()` function (using the `pp` object we defined above):
 
 ```{r, eval=FALSE}
 pp.recon = MarginRecon(phy, sim.dat, f=c(1,1), hidden.states=TRUE, pars=pp$solution, 
-                       aic=pp$aic, n.cores=2)
+                       aic=pp$aic, n.cores=2) #oh I see, we are supplanting the aic from pp to make pp.recon match our intial hisse model. 
 ```
 
 I've created two additional `hisse.states` objects that I will use to demonstrate how to plot model-averaged states and rates: one reconstruction is based on the null-two model [turnover.anc=c(1,1,2,2)], and the other assumes four free turnover rates [i.e., turnover.anc=c(1,2,3,4)]; in all cases I assumed equal transition rates and equal extinction fractions. I recognize that there are many ways to generate a list. But here is one way, where I'm assuming that the marginal reconstructions from three models are saved to the directory we are working from:
@@ -333,12 +371,78 @@ for(i in sequence(length(files))){
   load(files[i])
   hisse.results.list[[i]] = pp.recon
   rm(pp.recon)
-}
+} #alright, I could try to do so with my own data. 
 ```
 
 ## Your data
+```{r}
+library(corHMM)
+tree<-read.nexus(file = "EFN_tree.nex") #EFN in legume
+dat<-read.nexus.data(file="EFN_dat.nex") 
+tree<-drop.random(tree,700)
+CleanData <- function(phy, data) {
+	treedata(phy,data)
+}
+devtools::install_github("thej022214/corHMM", dependencies = FALSE)
+df<- data.frame(taxon=names(dat), trait=unlist(dat), stringsAsFactors = FALSE)
+dat<-df
+newnew<-CleanData(tree,dat)
+tree<-newnew$phy
+dat<-newnew$data
+#estimating fixed parameters #hisse can do this too. 
+corHMM_output<-corHMM(tree,df,rate.cat=2,node.states="none") #transition rates
+bdefn<-birthdeath(tree) #speciation and extinction
+
+#optimizing parameters
+#eps
+epsilon<-bdefn$para[1] #hisse can output this 
+epsilon<-rep(epsilon,4)
+epsilon<-rep(1,4)
+#tau is b+d not b-d (net. div)
+d<-(bdefn$para[1]*bdefn$para[2])/(1-bdefn$para[1])
+b<-bdefn$para[2]+d
+tau<-b+d
+tau<-rep(tau,4)
+tau<-unname(tau) #fixed #hisse can output this
+tau<-rep(1,4) #optomized
+#trans
+transition.rates<-corHMM_output$solution 
+transition.rates[which(is.na(transition.rates))]<-0
+diag(transition.rates)<-NA
+transition.rates<-ParDrop(trans.rates, c(3,5,8,10))
+#null
+trans.rates.hisse<-TransMatMaker(hidden.states = TRUE)
+trans.rates.hisse <- ParDrop(trans.rates.hisse, c(3,5,8,10))
+trans.rates.hisse[!is.na(trans.rates.hisse) & !trans.rates.hisse == 0] = 1
+
+#HISSE
+
+#null
+null.hiss<- hisse(tree,dat, hidden.states=TRUE, turnover.anc=c(1,1,1,1), eps.anc=c(1,1,1,1), trans.rate=trans.rates.hisse) #all things equal
+
+#alt 1
+pp.efn<-hisse(tree, dat, hidden.states=TRUE, turnover.anc=tau, eps.anc=epsilon, trans.rate=transition.rates) 
+#tau all equal, transition rates differ, eps all equal
+
+#alt 2
+pp.efn2<-hisse(tree, dat, hidden.states=TRUE, turnover.anc=c(1,2,3,4), eps.anc=c(1,2,3,4), trans.rate=transition.rates) 
+#tau differ, transition rates differ, epsilon differ
+#compare aic scores here, choose best model to plot #pp.efn2 most complex, however most complex (maybe more realistic to actual biological context)
+
+#alt 3 
+pp.efn3<-hisse(tree, dat, hidden.states=TRUE, turnover.anc=c(1,1,2,2), eps.anc=c(1,1,2,2), trans.rate=trans.rates.nodual.threerates)
+
+aic.comp<-c(null.hiss$AIC,pp.efn$AIC,pp.efn2$AIC,pp.efn3$AIC)
+aicc.comp<-c(null.hiss$AICc,pp.efn$AICc,pp.efn2$AICc,pp.efn3$AIC)
+
+pp.marg<-MarginRecon(tree, dat, f=c(.5,.5), hidden.states=TRUE, pars=pp.efn2$solution, aic=pp.efn2$aic, n.cores=2)
+#what does n.cores=2 really imply? argument explantaion seems vague. 
+#runs slow, prunned tree for this exercise. 
+
+plot.hisse.states(pp.marg, rate.param="net.div", show.tip.label=FALSE) #intial plot #stunning
+```
 
 ```{r}
-#stop("Now run with your own data")
+plot.hisse.states(pp.marg, rate.param="net.div", show.tip.label=FALSE, rate.range=c(0,0.5)) #a beaut!
 ```
 

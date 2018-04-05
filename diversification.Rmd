@@ -5,7 +5,7 @@ date: "3/21/2017"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=T}
 knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
 set.seed(1859)
 ```
@@ -26,46 +26,48 @@ library(hisse)
 
 Let's initially look just at diversification alone. Simulate a 30 taxon tree with only speciation, no extinction:
 
-```{r}
+```{r,eval=T}
 my.tree <- TreeSim::sim.bd.taxa(n=300, numbsim=1, lambda=0.1, mu=0)[[1]]
 ```
 
 As always, plot it:
 
-```{r}
+```{r,eval=T}
 #stop("How to plot a tree")
+plot.phylo(my.tree)
 ```
 
 One way to look at trees, and actually what many methods reduce to under the hood, is lineage through time plots. 
 
-```{r}
+```{r,eval=T}
 ape::ltt.plot(my.tree)
 ```
 
 You should see it increasing exponentially. Let's put it on a log scale:
 
-```{r}
+```{r,eval=T}
 ape::ltt.plot(my.tree, log="y")
 ```
 
 We can look at multiple trees:
 
-```{r}
+```{r,eval=T}
 yule.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=0.1, mu=0, complete=FALSE)
+ape::mltt.plot(yule.trees)
 #stop("How to do a multiple ltt plot?")
 
 ```
 
 We can also look at trees with birth and death.
 
-```{r}
+```{r,eval=T}
 bd.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=1, mu=.9, complete=FALSE)
 ape::mltt.plot(bd.trees, log="y", legend=FALSE)
 ```
 
 And compare them:
 
-```{r}
+```{r,eval=T}
 depth.range <- range(unlist(lapply(yule.trees,ape::branching.times)), unlist(lapply(bd.trees,ape::branching.times)))
 max.depth <- sum(abs(depth.range)) #ape rescales depths
 plot(x=c(0, -1*max.depth), y=c(1, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
@@ -82,7 +84,7 @@ legend("topleft", legend=c("Birth Death", "Yule"), fill=colors)
 
 And zooming in on the final part of the plot:
 
-```{r}
+```{r,eval=T}
 depth.range <- range(unlist(lapply(yule.trees,ape::branching.times)), unlist(lapply(bd.trees,ape::branching.times)))
 max.depth <- sum(abs(depth.range)) #ape rescales depths
 plot(x=c(0, -5), y=c(200, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
@@ -101,9 +103,27 @@ So even though the the net diversification rate is the same, there are very diff
 
 **TODO** Try plotting some with other diversification parameters. What happens if speciation rate is much higher than extinction rate? How does the simulation change with different values, but keeping their difference constant? If their sum is constant? [remember to change to `eval=TRUE` to run]
 
-```{r, eval=FALSE}
-my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=stop("CHOOSE YOUR VALUES"), mu=stop("CHOOSE YOUR VALUES"), complete=FALSE)
+```{r, eval=T}
+
+## Large difference in speciation rate and extinction rate
+my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=1, mu=0.001, complete=FALSE)
 ape::mltt.plot(my.trees, log="y", legend=FALSE)
+
+## sum of speciation and extinction rates always sums to 1
+# for (i in seq(0.0,1.0,0.25))
+# {
+#   j = 1 - i 
+#   cat(i,"\n")
+#   my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=i, mu=j, complete=FALSE)
+#   ape::mltt.plot(my.trees, log="y", legend=FALSE)
+# }
+
+for (i in seq(0.25,1.0,0.25))
+{
+  j = i - 0.1
+  my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=i, mu=j, complete=FALSE)
+  ape::mltt.plot(my.trees, log="y", legend=FALSE)
+}
 ```
 
 Once you can see that there is some information in the distribution of branch lengths, you can (and people have) make multiple models and compare them: a model where diversification rate slows or speeds up over time generates different predictions from a model where it's constant, for example. There are a wide bestiary of models to compare: models that imply logistic growth to a maximum number of species ("Let's speciate due to the Rockies!" "Wait, we can't: there are too many species of us in China, we're full!"), species age ("I haven't speciated in a while -- I forget how"), mass extinctions ("Incoming rock!!!"), and more. It's important to remember the idea of [dull hypothesis testing](https://bookdown.org/bomeara/comparative-methods/dull-model-testing.html): if you're comparing a complex model versus a simple model, on a messy, real dataset, you're probably going to reject a simple model, even if the complex model isn't true. It's also worth looking at parameter estimates: if you find your group is undergoing logistic growth, what is the carrying capacity? If it's a group of 26 species, and the carrying capacity is 27, that's very different from finding a carrying capacity of 5000. The effect of missing species can also be significant (simulation to test for this effect can be important). There are also methods, like Medusa ([Alfaro et al., 2009](http://www.pnas.org/content/106/32/13410.abstract)) and BAMM ([Rabosky, 2014[(http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0089543)) that attempt to infer where on a tree diversification rate shifts have happened, though I'd currently (March 2017) caution against their use as the basis for a study (but using them to complement results gotten another way could be informative).
@@ -116,12 +136,16 @@ This exercise is partially based on the [HiSSE vignette](https://cran.r-project.
 
 First, simulate a tree and characters to use:
 
-```{r}
+```{r,eval=T}
 speciation.rates <- c(0.1, 0.1, 0.1, 0.2) #0A, 1A, 0B, 1B
 extinction.rates <- rep(0.03, 4)
 transition.rates <- c(0.01,0.01,0, 0.01, 0, 0.01, 0.01,0,0.01, 0,0.01,0.01)
 pars <- c(speciation.rates, extinction.rates, transition.rates)
-phy <- tree.musse(pars, max.taxa=50, x0=1, include.extinct=FALSE)
+phy <- NULL
+while (is.null(phy))
+{
+  phy <- tree.musse(pars, max.taxa=50, x0=1, include.extinct=FALSE)
+}
 sim.dat.true <- data.frame(names(phy$tip.state), phy$tip.state)
 sim.dat <- sim.dat.true
 # Now to hide the "hidden" state
@@ -133,23 +157,23 @@ sim.dat[,2] = sim.dat[,2] - 1
 
 As always, look at what we have wrought:
 
-```{r}
+```{r,eval=T}
 plot(phy)
 ```
 
-```{r}
+```{r,eval=T}
 knitr::kable(cbind(sim.dat, true.char=sim.dat.true$phy.tip.state))
 ```
 
 Rather than optimizing $\lambda_i$ and $\mu_i$ separately, hisse optimizes transformations of these variables. Here we let $\tau_i = \lambda_i+\mu_i$ define “net turnover”, and we let $\epsilon_i = \mu_i / \lambda_i$ define the "extinction fraction". This reparameterization alleviates problems associated with over-fitting when $\lambda_i$ and $\mu_i$ are highly correlated, but both matter in explaining the diversity pattern (see discussion of this issue in Beaulieu and O'Meara 2016). The number of free parameters in the model for both net turnover and extinction fraction are specified as index vectors provided to the function call. Each vector contains four entries that correspond to rates associated with the observed states (0 or 1) and the hidden states (A or B). They are ordered as follows: 0A, 1A, 0B, 1B. Note that the index vector can also be set up such that parameters are linked among states or even dropped from the model entirely. 
 
 Let's walk through a couple of examples. Take, for instance, the following index vectors:
-```{r, eval=TRUE}
+```{r, eval=T}
 turnover.anc = c(1,1,0,0)
 eps.anc = c(1,1,0,0)
 ```
 In this example, turnover.anc has a single free parameter for both 0A and 1A state combinations; there is a single free parameter for extinction fraction. This is equivalent to a BiSSE model with a fixed turnover and extinction rates across the observed states 0 an 1. Now, say we want to include separate turnover rates for both states 0A and 1A: 
-```{r, eval=TRUE}
+```{r, eval=T}
 turnover.anc = c(1,2,0,0)
 ```
 Thus, a full hisse model would thus be,
@@ -197,7 +221,7 @@ trans.rates.bisse = TransMatMaker(hidden.states=FALSE)
 trans.rates.bisse
 ```
 Whatever transition matrix is designed, it is supplied to the `trans.rate=` argument in the `hisse()` call:
-```{r, eval=FALSE}
+```{r, eval=T}
 pp = hisse(phy, sim.dat, f=c(1,1), hidden.states=TRUE, turnover.anc=turnover.anc, 
            eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal)
 ```
@@ -217,7 +241,7 @@ trans.rates.nodual.no0B
 
 ## Changing the output
 By default, hisse outputs turnover and extinction fraction. I recognize, of course, that this defies the convention of seeking to estimate and interpretation differences in net diversification ($r_i = \lambda_i-\mu_i$). Therefore, users can alter how the final parameters are printed to the screen using the `output.type=` argument in the call `hisse()`. We've included three options: "turnover", "net.div", and "raw", which outputs the results as estimates of speciation ($\lambda_i$) and exinction ($\mu_i$). Thus, to output net diversification:
-```{r, eval=FALSE}
+```{r, eval=T}
 pp = hisse(phy, sim.dat, f=c(1,1), hidden.states=TRUE, turnover.anc=turnover.anc, 
            eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal, output.type="net.div")
 ```
@@ -263,33 +287,33 @@ trans.rates.nodual.threerates[to.change] = 3
 trans.rates.nodual.threerates
 ```
 As before, turnover.anc, eps.anc, and the transition rate matrix are supplied as arguments to `hisse()`:
-```{r, eval=FALSE}
+```{r, eval=T}
 pp = hisse(phy, sim.dat, f=c(1,1), hidden.states=TRUE, turnover.anc=turnover.anc, 
            eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal)
 ```
 and the results can be compared against any model in the hisse set, including BiSSE.
 
 ##Plotting hisse reconstructions
-```{r global_options, include=FALSE}
+```{r global_options, eval=T,include=FALSE}
 knitr::opts_chunk$set(fig.width=7, fig.height=5)
 ```
 
 Our HiSSE package provides plotting functionality in `plot.hisse.states()` for character state reconstructions of `class hisse.states` output by our `MarginRecon()` function. Specifically, the function provides an overlay of the state reconstructions on the rate estimates. There are a couple of options for how these reconstructions to be plotted. First, a single `hisse.states` object can be supplied and it will provide a heat map of the diversification rate parameter of choice. Users can choose among turnover, net diversification ("net.div"), speciation, extinction, or extinction fraction ("extinction.fraction"). I've provided example `hisse.states` output from the example data set simulated above. This particular model assumed two diversification rate parameters -- i.e., turnover.anc=c(1,1,1,2), and eps.anc=c(1,1,1,1). Let's load this file and check that everything has loaded correctly and is of the proper `hisse.states` class:
 
-```{r, eval=TRUE}
+```{r, eval=T}
 load("testrecon1.Rsave")
 class(pp.recon)
 pp.recon
 ```
 Now that we have the right files and information, let's plot net diversification rates:
-```{r, eval=TRUE}
+```{r, eval=T}
 plot.hisse.states(pp.recon, rate.param="net.div", show.tip.label=FALSE)
 ```
 These are the default colors: red to blue for rate and white to black for state. However, other colors can be specified (see plot.hisse.states manual). The legend in the bottom left corner provides the frequency of the observed states (0 or 1) and the distribution of net diversification rates at the tips only. Note that in this particular model I only specified two diversification rate parameters [i.e., turnover.anc=c(1,1,1,2), and eps.anc=c(1,1,1,1)], and yet there seems to be a continuous range of rates at the tips. What gives? Well, when a single reconstruction is provided the rates painted on each branch are the weighted average of the rate, with the marginal probability used as the weights. So this particular painting has taken into account the uncertainty in rates on each branch. 
 
 But, please be careful here! Notice that there are parts of the tree that have much higher rates (denoted by bright red) than others (denoted by darker blue). This is actually highly misleading. If you look at the legend the rates span from 0.066 - 0.069! So, really, there aren't any meaningful differences in the diversification rates despite what the painting may say. By default the visualization uses the minimum rate on the tree for the minimum color, and the maximum rate for the maximum color. However, users may want to use the same color scale across models, even if some of them have a smaller range than others. A vector with the minimum and maximum rate across all models can be passed to the visualization:
 
-```{r, eval=TRUE}
+```{r, eval=T}
 plot.hisse.states(pp.recon, rate.param="net.div", show.tip.label=FALSE, rate.range=c(0,0.072))
 ```
 Now the differences completely disappear.
@@ -297,19 +321,19 @@ Now the differences completely disappear.
 A really cool feature of the plotting function is that if you provide a list of `hisse.states` objects the function will "model-average" the results. In other words, branches are painted such that they take into account both state and rate uncertainty and uncertainty in the model. The `plot.hisse.states()` first calculates a weighted average of the likeliest state and rate combination for every node and tip for each model in the set, using the marginal probability as the weights, which are then averaged across all models using the Akaike weights (i.e., the relative probability of a model). 
 
 A first initial step when doing the modeling-averaging approach is to make sure that the `hisse.states` objects contain the AIC from the model fit embedded in it. The plotting function will not work without it:
-```{r, eval=TRUE}
+```{r, eval=T}
 pp.recon$aic
 ```
 If this returns a NULL, then something has gone wrong and you should check how you performed the reconstructions. The AIC for the model can be supplied as an argument in the `MarginRecon()` function (using the `pp` object we defined above):
 
-```{r, eval=FALSE}
+```{r, eval=T}
 pp.recon = MarginRecon(phy, sim.dat, f=c(1,1), hidden.states=TRUE, pars=pp$solution, 
                        aic=pp$aic, n.cores=2)
 ```
 
 I've created two additional `hisse.states` objects that I will use to demonstrate how to plot model-averaged states and rates: one reconstruction is based on the null-two model [turnover.anc=c(1,1,2,2)], and the other assumes four free turnover rates [i.e., turnover.anc=c(1,2,3,4)]; in all cases I assumed equal transition rates and equal extinction fractions. I recognize that there are many ways to generate a list. But here is one way, where I'm assuming that the marginal reconstructions from three models are saved to the directory we are working from:
 
-```{r, eval=TRUE}
+```{r, eval=T}
 hisse.results.list = list()
 load("testrecon1.Rsave")
 hisse.results.list[[1]] = pp.recon
@@ -323,9 +347,9 @@ plot.hisse.states(hisse.results.list, rate.param="net.div", show.tip.label=FALSE
 Although this is similar to the plot above, which shows no real rate differences, it actually accounts for both the uncertainty in the model as well as the reconstructions. Note that there are many features that can be adjusted in `plot.hisse.states()`, which is described in detail in the manual.
 
 Note that the above code is obviously a pretty lame way of generating a list. An even easier way would be to do something like this:
-```{r, eval=FALSE}
+```{r, eval=T}
 # First, suck in all the files with .Rsave line ending in your working directory:
-files = system("ls -1 | grep .Rsave", intern=TRUE)
+files = system("ls -1 | grep 'testrecon[0-9].Rsave'", intern=TRUE)
 # Create an empty list object
 hisse.results.list = list()
 # Now loop through all files, adding the embedded pp.recon object in each
@@ -337,8 +361,141 @@ for(i in sequence(length(files))){
 ```
 
 ## Your data
+As before, I will be wokring with bacteria and whether or not they have the Type-III secretion system. I will compare the HISSE model to the BISSE model to determine if these traits might be tied to a hidden trait. To start off with, I will assume a pure birth process for HISSE/BISSE and assume a single diversification rate.
+```{r,eval=T}
+tree <- read.tree("bacterial_tree.tre")
+discrete.data <- read.csv(file="discrete_traits.csv", stringsAsFactors=FALSE,row.names = 1,header=0) #death to factors.
+CleanData <- function(phy, data) {
+	cleaned <- treedata(phy,data,warnings=F)# in Geiger is probably my favorite function in R.
+	return(cleaned)
+}
+cleaned.discrete <- CleanData(tree,discrete.data)
+one.discrete.char.orig <- read.table("discrete_traits.csv",sep=",",header=T,stringsAsFactors = F,row.names=1)
+one.discrete.char <- one.discrete.char.orig[cleaned.discrete$phy$tip.label,] ##reorder traits to match order in phylogenetic tree
+reconstruction.info <- ace(one.discrete.char, cleaned.discrete$phy, type="discrete", method="ML", CI=TRUE)
+best.states <- colnames(reconstruction.info$lik.anc)[apply(reconstruction.info$lik.anc, 1, which.max)]
+cleaned.discrete$phy$node.label <- best.states
+labeled.tree <-chronoMPL(cleaned.discrete$phy)
+discrete.data <- read.table("discrete_traits.csv",sep=",",header=T,stringsAsFactors = F)
 
-```{r}
-#stop("Now run with your own data")
+turnover.anc = c(1,2,3,4) ## All states have free parameters
+eps.anc = c(0,0,0,0) ## Pure birth model
+trans.rates = TransMatMaker(hidden.states=TRUE)
+trans.rates.nodual = ParDrop(trans.rates, c(3,5,8,10))
+trans.rates.nodual.allequal = ParEqual(trans.rates.nodual, c(1,2,1,3,1,4,1,5,1,6,1,7,1,8))
+pp = hisse(labeled.tree, discrete.data, hidden.states=TRUE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal)
+pp.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=TRUE, pars=pp$solution, 
+                       aic=pp$aic, n.cores=2)
+plot.hisse.states(pp.recon, rate.param="net.div", show.tip.label=F)
+results.list <- list()
+results.list[[1]] <- pp.recon
+
+turnover.anc = c(1,2) ## All states have free parameters
+eps.anc = c(0,0) ## Pure birth model
+trans.rates.bisse = TransMatMaker(hidden.states=FALSE)
+trans.rates.bisse.allequal = ParEqual(trans.rates.bisse, c(1,2))
+pp.bisse = hisse(labeled.tree, discrete.data, hidden.states=FALSE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.bisse.allequal)
+pp.bisse.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=F, pars=pp.bisse$solution, 
+                       aic=pp.bisse$aic, n.cores=2)
+plot.hisse.states(pp.bisse.recon, rate.param="net.div", show.tip.label=F)
+results.list[[2]] <- pp.bisse.recon
+
+df <- data.frame(models=c("HISSE (no extinction, rates equal)", "BISSE (no extinction, rates equal)"),AICc=c(pp$AICc,pp.bisse$AICc),stringsAsFactors = F)
+
 ```
 
+```{r,eval=T}
+turnover.anc = c(1,2,3,4) ## All states have free parameters
+eps.anc = c(0,0,0,0) ## Pure birth model
+
+trans.rates = TransMatMaker(hidden.states=TRUE)
+trans.rates.nodual = ParDrop(trans.rates, c(3,5,8,10))
+
+pp.hisse.nonequal = hisse(labeled.tree, discrete.data, hidden.states=TRUE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.nodual)
+pp.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=TRUE, pars=pp.hisse.nonequal$solution, 
+                       aic=pp.hisse.nonequal$aic, n.cores=2)
+plot.hisse.states(pp.recon, rate.param="net.div", show.tip.label=F)
+
+results.list[[3]] <- pp.recon
+
+turnover.anc = c(1,2) ## All states have free parameters
+eps.anc = c(0,0) ## Pure birth model
+trans.rates.bisse = TransMatMaker(hidden.states=FALSE)
+pp.bisse.nonequal = hisse(labeled.tree, discrete.data, hidden.states=FALSE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.bisse)
+pp.bisse.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=F, pars=pp.bisse.nonequal$solution, 
+                       aic=pp.bisse.nonequal$aic, n.cores=2)
+plot.hisse.states(pp.bisse.recon, rate.param="net.div", show.tip.label=F)
+
+results.list[[4]] <- pp.bisse.recon
+
+df.tmp<- data.frame(models=c("HISSE (no extinction, rates not equal)", "BISSE (no extinction, rates not equal)"),AICc=c(pp.hisse.nonequal$AICc,pp.bisse.nonequal$AICc),stringsAsFactors = F)
+df <- rbind(df,df.tmp)
+
+```
+
+Now with a shared extinction rates 
+```{r,eval=T}
+turnover.anc = c(1,2,3,4) ## All states have free parameters
+eps.anc = c(1,1,1,1)
+
+trans.rates = TransMatMaker(hidden.states=TRUE)
+trans.rates.nodual = ParDrop(trans.rates, c(3,5,8,10))
+trans.rates.nodual.allequal = ParEqual(trans.rates.nodual, c(1,2,1,3,1,4,1,5,1,6,1,7,1,8))
+pp.hisse.equal.eps = hisse(labeled.tree, discrete.data, hidden.states=TRUE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal)
+pp.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=TRUE, pars=pp.hisse.equal.eps$solution, 
+                       aic=pp.hisse.equal.eps$aic, n.cores=2)
+plot.hisse.states(pp.recon, rate.param="net.div", show.tip.label=F)
+
+results.list[[5]] <- pp.recon
+
+
+turnover.anc = c(1,2) ## All states have free parameters
+eps.anc = c(1,1)
+trans.rates.bisse = TransMatMaker(hidden.states=FALSE)
+trans.rates.bisse.allequal = ParEqual(trans.rates.bisse, c(1,2))
+pp.bisse.equal.eps = hisse(labeled.tree, discrete.data, hidden.states=FALSE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.bisse.allequal)
+pp.bisse.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=F, pars=pp.bisse.equal.eps$solution, 
+                       aic=pp.bisse.equal.eps$aic, n.cores=2)
+plot.hisse.states(pp.bisse.recon, rate.param="net.div", show.tip.label=F)
+
+results.list[[6]] <- pp.bisse.recon
+
+df.tmp<- data.frame(models=c("HISSE (extinction, rates equal)", "BISSE (extinction, rates equal)"),AICc=c(pp.hisse.equal.eps$AICc,pp.bisse.equal.eps$AICc),stringsAsFactors = F)
+df <- rbind(df,df.tmp)
+```
+Now try a CID-2 model. 
+
+```{r,eval=T}
+turnover.anc = c(1,1,2,2) ## All states have free parameters
+eps.anc = c(1,1,2,2)
+
+trans.rates = TransMatMaker(hidden.states=TRUE)
+trans.rates.nodual = ParDrop(trans.rates, c(3,5,8,10))
+
+pp.cid= hisse(labeled.tree, discrete.data, hidden.states=TRUE, turnover.anc=turnover.anc, 
+           eps.anc=eps.anc, trans.rate=trans.rates.nodual)
+pp.recon = MarginRecon(labeled.tree, discrete.data, f=c(1,1), hidden.states=TRUE, pars=pp.cid$solution, 
+                       aic=pp.cid$aic, n.cores=2)
+plot.hisse.states(pp.recon, rate.param="net.div", show.tip.label=F)
+
+results.list[[7]] <- pp.recon
+
+df.tmp<- data.frame(models=c("CID-2"),AICc=c(pp.cid$AICc),stringsAsFactors = F)
+df <- rbind(df,df.tmp)
+
+```
+
+Finally, determine the best model using AICc. 
+
+```{r,eval=T}
+best.model <- which.min(df[,2])
+print(paste("The best model is ",df[best.model,1]))
+```
+
+According to this, the best model appears to be the HISSE model, with no extinction and transition rates not equal. However, I interpret these results with caution, given the warnings when extinction rates were included in the model. The hidden state which could be driving differences in diversification rates could be whether or not the bacteria is pathogenic. 

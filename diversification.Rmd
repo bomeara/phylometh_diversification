@@ -5,7 +5,7 @@ date: "3/21/2017"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
 set.seed(1859)
 ```
@@ -20,20 +20,20 @@ library(ape)
 library(TreeSim)
 library(geiger)
 library(diversitree)
-#devtools::install_github("thej022214/hisse")
+devtools::install_github("thej022214/hisse")
 library(hisse)
 ```
 
 Let's initially look just at diversification alone. Simulate a 30 taxon tree with only speciation, no extinction:
 
 ```{r}
-my.tree <- TreeSim::sim.bd.taxa(n=300, numbsim=1, lambda=0.1, mu=0)[[1]]
+my.tree <- TreeSim::sim.bd.taxa(n=30, numbsim=1, lambda=0.1, mu=0)[[1]]
 ```
 
 As always, plot it:
 
 ```{r}
-#stop("How to plot a tree")
+plot(my.tree)
 ```
 
 One way to look at trees, and actually what many methods reduce to under the hood, is lineage through time plots. 
@@ -51,15 +51,15 @@ ape::ltt.plot(my.tree, log="y")
 We can look at multiple trees:
 
 ```{r}
-yule.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=0.1, mu=0, complete=FALSE)
+yule.trees <- TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=0.1, mu=0, complete=FALSE)
 #stop("How to do a multiple ltt plot?")
-
+ape::mltt.plot(yule.trees, log="y")
 ```
 
 We can also look at trees with birth and death.
 
 ```{r}
-bd.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=1, mu=.9, complete=FALSE)
+bd.trees <- TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=.9, complete=FALSE)
 ape::mltt.plot(bd.trees, log="y", legend=FALSE)
 ```
 
@@ -85,7 +85,7 @@ And zooming in on the final part of the plot:
 ```{r}
 depth.range <- range(unlist(lapply(yule.trees,ape::branching.times)), unlist(lapply(bd.trees,ape::branching.times)))
 max.depth <- sum(abs(depth.range)) #ape rescales depths
-plot(x=c(0, -5), y=c(200, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
+plot(x=c(0, -4), y=c(20, ape::Ntip(yule.trees[[1]])), log="y", type="n", bty="n", xlab="Time", ylab="N")
 colors=c(rgb(1,0,0,0.5), rgb(0, 0, 0, 0.5))
 list.of.both <- list(bd.trees, yule.trees)
 for (i in sequence(2)) {
@@ -101,8 +101,8 @@ So even though the the net diversification rate is the same, there are very diff
 
 **TODO** Try plotting some with other diversification parameters. What happens if speciation rate is much higher than extinction rate? How does the simulation change with different values, but keeping their difference constant? If their sum is constant? [remember to change to `eval=TRUE` to run]
 
-```{r, eval=FALSE}
-my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=stop("CHOOSE YOUR VALUES"), mu=stop("CHOOSE YOUR VALUES"), complete=FALSE)
+```{r, eval=TRUE}
+my.trees <- TreeSim::sim.bd.taxa(n=30, numbsim=10, lambda=1, mu=0.05, complete=FALSE)
 ape::mltt.plot(my.trees, log="y", legend=FALSE)
 ```
 
@@ -277,6 +277,7 @@ knitr::opts_chunk$set(fig.width=7, fig.height=5)
 Our HiSSE package provides plotting functionality in `plot.hisse.states()` for character state reconstructions of `class hisse.states` output by our `MarginRecon()` function. Specifically, the function provides an overlay of the state reconstructions on the rate estimates. There are a couple of options for how these reconstructions to be plotted. First, a single `hisse.states` object can be supplied and it will provide a heat map of the diversification rate parameter of choice. Users can choose among turnover, net diversification ("net.div"), speciation, extinction, or extinction fraction ("extinction.fraction"). I've provided example `hisse.states` output from the example data set simulated above. This particular model assumed two diversification rate parameters -- i.e., turnover.anc=c(1,1,1,2), and eps.anc=c(1,1,1,1). Let's load this file and check that everything has loaded correctly and is of the proper `hisse.states` class:
 
 ```{r, eval=TRUE}
+githubinstall::gh_install_packages(packages = "https://github.com/thej022214/hisse/tree/master/vignettes")
 load("testrecon1.Rsave")
 class(pp.recon)
 pp.recon
@@ -339,6 +340,44 @@ for(i in sequence(length(files))){
 ## Your data
 
 ```{r}
-#stop("Now run with your own data")
+
+#Mangrove slug tree and discrete traits
+
+NSG_Tree<- read.tree("mangrove_treeFinal2.tre")
+data1 <- read.csv(file="MangroveDiscrete.csv", stringsAsFactors=FALSE, header=FALSE)
+
+mangrove.vector<-data1[,2]
+names(mangrove.vector)<-data1[,1]
+name.check(NSG_Tree, mangrove.vector)
+
+#my version of making sure names match data :)
+
+library(corHMM)
+cor_out<-corHMM(NSG_Tree,data1,rate.cat=2,node.states="none") #incorrect number of dimensions? why?
+BDR<-birthdeath(NSG_Tree)
+
+turnover.anc<- c(1,1,2,2)
+eps.anc<- c(1,1,2,2)
+
+trans_rate<-cor_out$solution
+trans_rate<-ParDrop(trans_rate, c(3,5,8,10))
+
+
+#is this correct?
+
+Hisse_T_rate<-TransMatMaker(hidden.states=TRUE)
+Hisse_T_rate<-ParDrop(Hisse_T_rate, c(3,5,8,10))
+
+mod1<-hisse(NSG_Tree,data1,hidden.states=TRUE,turnover.anc=turnover.anc,eps.anc=eps.anc,trans.rate=trans_rate)
+
+mod2<-hisse(NSG_Tree,data1,hidden.states=TRUE,turnover.anc=turnover.anc,eps.anc=eps.anc,trans.rate=Hisse_T_rate)
+
+#errors in both:
+
+#Error in c(p.new, 0)[pars] : 
+  #only 0's may be mixed with negative subscripts
+
+#How to resolve?
+
 ```
 

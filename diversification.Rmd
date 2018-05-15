@@ -1,7 +1,7 @@
 ---
 title: "Diversification"
-author: "Brian O'Meara"
-date: "3/21/2017"
+author: "Erika Moore"
+date: "3/20/2018"
 output: html_document
 ---
 
@@ -27,12 +27,15 @@ library(hisse)
 Let's initially look just at diversification alone. Simulate a 30 taxon tree with only speciation, no extinction:
 
 ```{r}
+#install.packages("TreeSim")
+#install.packages("ape")
 my.tree <- TreeSim::sim.bd.taxa(n=300, numbsim=1, lambda=0.1, mu=0)[[1]]
 ```
 
 As always, plot it:
 
 ```{r}
+plot(my.tree,"fan")
 #stop("How to plot a tree")
 ```
 
@@ -53,6 +56,7 @@ We can look at multiple trees:
 ```{r}
 yule.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=0.1, mu=0, complete=FALSE)
 #stop("How to do a multiple ltt plot?")
+mltt.plot(yule.trees, xlab = "Time", ylab = "N")
 
 ```
 
@@ -101,9 +105,13 @@ So even though the the net diversification rate is the same, there are very diff
 
 **TODO** Try plotting some with other diversification parameters. What happens if speciation rate is much higher than extinction rate? How does the simulation change with different values, but keeping their difference constant? If their sum is constant? [remember to change to `eval=TRUE` to run]
 
-```{r, eval=FALSE}
-my.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=stop("CHOOSE YOUR VALUES"), mu=stop("CHOOSE YOUR VALUES"), complete=FALSE)
-ape::mltt.plot(my.trees, log="y", legend=FALSE)
+```{r, eval=TRUE}
+birthdeath.trees <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=1, mu=0.9, complete=FALSE)
+ape::mltt.plot(bd.trees, log="y", legend=FALSE)
+
+my.trees1 <- TreeSim::sim.bd.taxa(n=300, numbsim=10, lambda=0.3, mu=0, complete=FALSE)
+ape::mltt.plot(my.trees1, log="y", legend=FALSE)
+
 ```
 
 Once you can see that there is some information in the distribution of branch lengths, you can (and people have) make multiple models and compare them: a model where diversification rate slows or speeds up over time generates different predictions from a model where it's constant, for example. There are a wide bestiary of models to compare: models that imply logistic growth to a maximum number of species ("Let's speciate due to the Rockies!" "Wait, we can't: there are too many species of us in China, we're full!"), species age ("I haven't speciated in a while -- I forget how"), mass extinctions ("Incoming rock!!!"), and more. It's important to remember the idea of [dull hypothesis testing](https://bookdown.org/bomeara/comparative-methods/dull-model-testing.html): if you're comparing a complex model versus a simple model, on a messy, real dataset, you're probably going to reject a simple model, even if the complex model isn't true. It's also worth looking at parameter estimates: if you find your group is undergoing logistic growth, what is the carrying capacity? If it's a group of 26 species, and the carrying capacity is 27, that's very different from finding a carrying capacity of 5000. The effect of missing species can also be significant (simulation to test for this effect can be important). There are also methods, like Medusa ([Alfaro et al., 2009](http://www.pnas.org/content/106/32/13410.abstract)) and BAMM ([Rabosky, 2014[(http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0089543)) that attempt to infer where on a tree diversification rate shifts have happened, though I'd currently (March 2017) caution against their use as the basis for a study (but using them to complement results gotten another way could be informative).
@@ -121,7 +129,10 @@ speciation.rates <- c(0.1, 0.1, 0.1, 0.2) #0A, 1A, 0B, 1B
 extinction.rates <- rep(0.03, 4)
 transition.rates <- c(0.01,0.01,0, 0.01, 0, 0.01, 0.01,0,0.01, 0,0.01,0.01)
 pars <- c(speciation.rates, extinction.rates, transition.rates)
-phy <- tree.musse(pars, max.taxa=50, x0=1, include.extinct=FALSE)
+phy <- NULL
+while(is.null(phy)) {
+  phy <- tree.musse(pars, max.taxa=50, x0=1, include.extinct=FALSE)
+}
 sim.dat.true <- data.frame(names(phy$tip.state), phy$tip.state)
 sim.dat <- sim.dat.true
 # Now to hide the "hidden" state
@@ -197,9 +208,10 @@ trans.rates.bisse = TransMatMaker(hidden.states=FALSE)
 trans.rates.bisse
 ```
 Whatever transition matrix is designed, it is supplied to the `trans.rate=` argument in the `hisse()` call:
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 pp = hisse(phy, sim.dat, f=c(1,1), hidden.states=TRUE, turnover.anc=turnover.anc, 
            eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal)
+pp
 ```
 
 ## A common mistake
@@ -217,9 +229,10 @@ trans.rates.nodual.no0B
 
 ## Changing the output
 By default, hisse outputs turnover and extinction fraction. I recognize, of course, that this defies the convention of seeking to estimate and interpretation differences in net diversification ($r_i = \lambda_i-\mu_i$). Therefore, users can alter how the final parameters are printed to the screen using the `output.type=` argument in the call `hisse()`. We've included three options: "turnover", "net.div", and "raw", which outputs the results as estimates of speciation ($\lambda_i$) and exinction ($\mu_i$). Thus, to output net diversification:
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 pp = hisse(phy, sim.dat, f=c(1,1), hidden.states=TRUE, turnover.anc=turnover.anc, 
            eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal, output.type="net.div")
+pp
 ```
 
 ## Setting up the 2-state character-independent (CID-2) model
@@ -239,7 +252,9 @@ In other words, we are specifying that both 0A and 1A have one set of diversific
 In regards to the transition rates, there are three ways in which they can be set up. The first is to assume the usual 8 transitions in the full hisse model (or 12 if dual transitions are allowed -- for this tutorial we remove dual transitions):
 ```{r, eval=TRUE}
 trans.rates = TransMatMaker(hidden.states=TRUE)
+trans.rates
 trans.rates.nodual = ParDrop(trans.rates, c(3,5,8,10))
+trans.rates.nodual
 ```
 We could also assume all rates are equal:
 ```{r, eval=TRUE}
@@ -263,9 +278,10 @@ trans.rates.nodual.threerates[to.change] = 3
 trans.rates.nodual.threerates
 ```
 As before, turnover.anc, eps.anc, and the transition rate matrix are supplied as arguments to `hisse()`:
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 pp = hisse(phy, sim.dat, f=c(1,1), hidden.states=TRUE, turnover.anc=turnover.anc, 
            eps.anc=eps.anc, trans.rate=trans.rates.nodual.allequal)
+pp
 ```
 and the results can be compared against any model in the hisse set, including BiSSE.
 
@@ -302,9 +318,8 @@ pp.recon$aic
 ```
 If this returns a NULL, then something has gone wrong and you should check how you performed the reconstructions. The AIC for the model can be supplied as an argument in the `MarginRecon()` function (using the `pp` object we defined above):
 
-```{r, eval=FALSE}
-pp.recon = MarginRecon(phy, sim.dat, f=c(1,1), hidden.states=TRUE, pars=pp$solution, 
-                       aic=pp$aic, n.cores=2)
+```{r, eval=TRUE}
+pp.recon <- MarginRecon(phy, sim.dat, f=c(1,1), hidden.states=TRUE, pars=pp$solution, aic=pp$aic, n.cores=1)
 ```
 
 I've created two additional `hisse.states` objects that I will use to demonstrate how to plot model-averaged states and rates: one reconstruction is based on the null-two model [turnover.anc=c(1,1,2,2)], and the other assumes four free turnover rates [i.e., turnover.anc=c(1,2,3,4)]; in all cases I assumed equal transition rates and equal extinction fractions. I recognize that there are many ways to generate a list. But here is one way, where I'm assuming that the marginal reconstructions from three models are saved to the directory we are working from:
@@ -322,23 +337,168 @@ plot.hisse.states(hisse.results.list, rate.param="net.div", show.tip.label=FALSE
 ```
 Although this is similar to the plot above, which shows no real rate differences, it actually accounts for both the uncertainty in the model as well as the reconstructions. Note that there are many features that can be adjusted in `plot.hisse.states()`, which is described in detail in the manual.
 
-Note that the above code is obviously a pretty lame way of generating a list. An even easier way would be to do something like this:
-```{r, eval=FALSE}
+Note that the above code is obviously a pretty lame way of generating a list. An even easier way would be to do "something like this:
+```{r, eval=TRUE}
 # First, suck in all the files with .Rsave line ending in your working directory:
-files = system("ls -1 | grep .Rsave", intern=TRUE)
+files.to.load <- list.files(pattern="Rsave")
+files<- for (i in sequence(length(files.to.load))) {
+  load(files.to.load[i])
+  
+}
+
+
 # Create an empty list object
 hisse.results.list = list()
 # Now loop through all files, adding the embedded pp.recon object in each
+
+
 for(i in sequence(length(files))){
   load(files[i])
-  hisse.results.list[[i]] = pp.recon
-  rm(pp.recon)
+  hisse.results.list[[i]] = files
+  rm(files)
+  
 }
 ```
 
 ## Your data
+My question to consider now: Does seed size matter? I am using the seed mass data from my continuous data homework
 
 ```{r}
 #stop("Now run with your own data")
+library(BIEN)
+library(dplyr)
+library(geiger)
+library(ape)
+library(rotl)
+library(datelife)
+yearn::yearn(BIEN)
+asteraceae.data <- BIEN_trait_family("Asteraceae")
+
+
+a.data<-subset(asteraceae.data,trait_name=="seed mass")
+yearn::yearn(dplyr)
+my.tree <- get_study_tree("ot_502", "tree1")
+trees<-datelife_search(input=a.data$scrubbed_species_binomial)
+str(trees) 
+biggest.ntax <- 0
+biggest.tree <- NULL
+for (tree.index in sequence(length(trees))) {
+  if(Ntip(trees[[tree.index]]) > biggest.ntax) {
+    biggest.tree <- trees[[tree.index]]
+    biggest.ntax <- Ntip(trees[[tree.index]])
+  }
+}
+
+## current tree - biggest.tree
+
+
+
+# Data
+asteraceae.data <- BIEN_trait_family("Asteraceae")
+a.data<-subset(asteraceae.data,trait_name=="seed mass")
+yearn::yearn(dplyr)
+
+ library(taxize)
+  gnr.data <- gnr_datasources()
+  gnr.source <- gnr.data[gnr.data$title=="NCBI", "id"]
+  new.tree.names <- taxize::gnr_resolve(biggest.tree$tip.label, data_source=gnr.source, best_match_only =TRUE)$matched_name
+ # print(cbind(tree$tip.label, new.tree.names))
+  biggest.tree$tip.label <- new.tree.names
+  library(geiger)
+  
+  data.names <- a.data$scrubbed_species_binomial
+  actual.data <- data.frame(species=a.data$scrubbed_species_binomial,seed.mass=a.data[, "trait_value"], stringsAsFactors = FALSE)
+  actual.data$seed.mass <- as.numeric(actual.data$seed.mass)
+  aggregated.data <- as.data.frame(group_by(actual.data, species) %>% summarise(median = median(seed.mass)))
+    seed.sd <- as.data.frame(group_by(actual.data, species) %>% summarise(sd = sd(seed.mass)))
+    seed.sd.vector <- seed.sd$sd
+    names(seed.sd.vector) <- seed.sd$species
+    seed.sd.vector <- sort(seed.sd.vector, decreasing=TRUE)
+    seed.sd.vector <- seed.sd.vector[!is.na(seed.sd.vector)]
+    seed.sd.vector <- seed.sd.vector[!is.na(names(seed.sd.vector))]
+#some plants had really high variance in seed size: Helianthus annuus went from 1 mg to over 50 mg seeds. This seems... wrong. So we prune out species with high variance
+    top.2.5.percent <- quantile(seed.sd.vector,c(0.975), na.rm=TRUE)
+    bad.seeds <- names(seed.sd.vector)[which(seed.sd.vector>top.2.5.percent)]
+    
+
+  aggregated.data <- aggregated.data[!is.na(aggregated.data$species),]
+  aggregated.data <- aggregated.data[!(aggregated.data$species %in% bad.seeds),]
+  rownames(aggregated.data) <- aggregated.data$species
+
+## aggregated.data is now the most clean data
+  
+ 
+  cleaned.result<- treedata(phy=biggest.tree,data=aggregated.data,sort=TRUE) #to get the same tree data between tree and dataset
+  cleaned.tree <- cleaned.result$phy
+  cleaned.data <- cleaned.result$data
+  cleaned.vector <- log(as.numeric(cleaned.data[,2]))
+  names(cleaned.vector) <- rownames(cleaned.data)
+  
+phytools::contMap(cleaned.tree, cleaned.vector)
+
+  
+#claimed non-ultrametric, so fixed branch lengths    
+  new.p <- ape::chronoMPL(cleaned.tree)
+  print(ape::is.ultrametric(new.p))
+  plot(cleaned.tree$edge.length, new.p$edge.length, xlab="Original tree", ylab="Post-chronos tree", pch=20, bty="n")
+  
+# Current Tree
+#new.p
+
+# Current Data
+#cleaned.vector  
+  
 ```
+
+
+Try to do Quasse Function
+```{r}
+# Current Tree
+#new.p
+
+# Current Data
+#cleaned.vector
+
+
+#new.p Branch length issues:
+new.phy <- ape::chronoMPL(new.p)
+print(ape::is.ultrametric(new.phy))
+plot(new.p$edge.length, new.phy$edge.length, xlab="Original tree", ylab="Post-chronos tree", pch=20, bty="n")
+abline(a=0, b=1, col="gray", lwd=0.5)
+
+new.phy$edge.length[which(new.phy$edge.length<0)] <- 0
+new.phy <- di2multi(new.phy)
+print(new.phy)
+plot(new.phy)
+
+#problem with bifurcating in tree
+#vector names = species, vector data = 0,1
+one.discrete.char <- cleaned.vector
+new.phy <- phytools::midpoint.root(new.phy)
+new.phy <- multi2di(new.phy)
+new.phy$edge.length[which(new.phy$edge.length==0)] <- 1e-10
+reconstruction.info <- ace(one.discrete.char, new.phy, type="discrete", method="ML", CI=TRUE)
+
+##to get the states.sd for QuaSSE
+states.sd<-names(seed.sd.vector) %in% new.phy$tip.label
+states.sd.data<-seed.sd.vector[!(states.sd)]
+
+#Quasse
+library(diversitree)
+
+stuff<-geiger::treedata(new.phy, cleaned.vector)
+sd.estimates <- stuff$data[,1]
+sd.estimates <- median(states.sd.data)
+get.stuff<-starting.point.quasse(stuff$phy,stuff$data[,1], sd.estimates)
+
+lambda <- function(x) sigmoid.x(x, 0.1, 0.2,  0, 4) #4 because of default
+mu <- function(x) constant.x(x, 0.03)
+char <- make.brownian.with.drift(0, 0.025)
+
+
+quasse.ml <- make.quasse(lambda, mu, tree=stuff$phy, states = stuff$data[,1], states.sd = sd.estimates)
+##mle<- find.mle(quasse.ml, get.stuff, method="optim")
+## this is the part that I am still struggling with. Will continue to work on it.
+```
+
 
